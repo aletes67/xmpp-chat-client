@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:chat_client/services/auth_service.dart';
+import 'package:chat_client/pages/chat_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'chat_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -9,50 +9,36 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _storage = FlutterSecureStorage();
+  final AuthService _authService = AuthService();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    _loadCredentials();
-  }
+  void _login() async {
+    String username = _usernameController.text;
+    String password = _passwordController.text;
 
-  void _loadCredentials() async {
-    String? username = await _storage.read(key: 'username');
-    String? password = await _storage.read(key: 'password');
+    // Save the credentials
+    await _authService.saveCredentials(username, password);
 
-    if (username != null && password != null) {
-      _login(username, password);
-    }
-  }
-
-  void _login(String username, String password) {
-    String domain = dotenv.env['DOMAIN']!;
-    int port = int.parse(dotenv.env['PORT']!);
-
-    // Save credentials securely
-    _storage.write(key: 'username', value: username);
-    _storage.write(key: 'password', value: password);
-
-    Navigator.push(
+    // Navigate to the chat screen
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => ChatScreen(
           username: username,
           password: password,
-          domain: domain,
-          port: port,
+          domain: dotenv.env['DOMAIN']!,
+          port: int.parse(dotenv.env['PORT']!),
         ),
       ),
     );
   }
 
-  void _handleLogin() {
-    String username = _usernameController.text;
-    String password = _passwordController.text;
-    _login(username, password);
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -76,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _handleLogin,
+              onPressed: _login,
               child: Text('Login'),
             ),
           ],
