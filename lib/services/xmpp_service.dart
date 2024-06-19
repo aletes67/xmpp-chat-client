@@ -40,8 +40,10 @@ class XmppService {
 
     _messageSubscription = _connection.inStanzasStream.listen((stanza) {
       if (stanza is xmpp.MessageStanza && stanza.body != null) {
-        _logger.info('Message received from ${stanza.fromJid!.fullJid}: ${stanza.body}');
-        _messageController.add('${stanza.fromJid!.fullJid}: ${stanza.body}');
+        final sender = stanza.fromJid!.local; // Extracting the username
+        final message = '${sender}: ${stanza.body}';
+        _logger.info('Message received from $sender: ${stanza.body}');
+        _messageController.add(message);
       }
     });
 
@@ -65,7 +67,7 @@ class XmppService {
   }
 
   void _handlePresenceStanza(xmpp.PresenceStanza stanza) {
-    var userJid = stanza.fromJid?.fullJid;
+    var userJid = stanza.fromJid?.local; // Extracting the username
     if (userJid != null) {
       if (stanza.type == null && !_users.contains(userJid)) {
         _logger.info('User available: $userJid');
@@ -87,7 +89,7 @@ class XmppService {
     );
     messageStanza.toJid = jidTo;
     messageStanza.body = message;
-    _logger.info('Sending message to ${jidTo.fullJid}: $message');
+    _logger.info('Sending message to ${jidTo.local}: $message'); // Logging username only
     _connection.writeStanza(messageStanza);
   }
 

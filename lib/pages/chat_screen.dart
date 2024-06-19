@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:chat_client/services/xmpp_service.dart';
 import 'package:chat_client/services/auth_service.dart';
-import 'package:chat_client/login_screen.dart';
+import 'package:chat_client/pages/login_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String username;
@@ -47,7 +47,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void _sendMessage() {
     if (_selectedUser != null) {
       var message = _messageController.text;
-      _xmppService.sendMessage(message, _selectedUser!);
+      var fullJid = '$_selectedUser@${widget.domain}';
+      _xmppService.sendMessage(message, fullJid);
       setState(() {
         _messages.add('Me: $message');
       });
