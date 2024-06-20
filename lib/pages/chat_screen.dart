@@ -47,8 +47,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _sendMessage() {
     if (_selectedUser != null) {
       var message = _messageController.text;
-      var fullJid = '$_selectedUser@${widget.domain}';
-      _xmppService.sendMessage(message, fullJid);
+      _xmppService.sendMessage(message, _selectedUser!); // Pass only the username, domain is handled in the service
       setState(() {
         _messages.add('Me: $message');
       });

@@ -81,16 +81,21 @@ class XmppService {
     }
   }
 
-  void sendMessage(String message, String toJid) {
-    var jidTo = xmpp.Jid.fromFullJid(toJid);
+  void sendMessage(String message, String toUsername) {
+    String domain = dotenv.env['DOMAIN']!;
+    var jidTo = xmpp.Jid.fromFullJid('$toUsername@$domain');
     var messageStanza = xmpp.MessageStanza(
-      'id',
+      DateTime.now().millisecondsSinceEpoch.toString(), // Unique ID
       xmpp.MessageStanzaType.CHAT,
     );
     messageStanza.toJid = jidTo;
     messageStanza.body = message;
-    _logger.info('Sending message to ${jidTo.local}: $message'); // Logging username only
+    _logger.info('Sending message to ${jidTo.fullJid}: $message'); // Logging full JID
+
+    // Aggiunta del log prima di inviare il messaggio
+    _logger.info('Message stanza before sending: ${messageStanza.buildXmlString()}');
     _connection.writeStanza(messageStanza);
+    _logger.info('Message stanza sent successfully.');
   }
 
   void dispose() {

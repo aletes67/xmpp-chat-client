@@ -1,6 +1,6 @@
+import 'package:chat_client/pages/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:chat_client/pages/login_screen.dart';
 import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/pages/chat_screen.dart';
 
