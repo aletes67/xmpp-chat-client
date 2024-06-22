@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:chat_client/services/xmpp_service.dart';
 import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/pages/login_screen.dart';
+import 'package:chat_client/pages/user_settings_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String username;
@@ -27,10 +29,13 @@ class _ChatScreenState extends State<ChatScreen> {
   List<String> _users = [];
   String? _selectedUser;
   final TextEditingController _messageController = TextEditingController();
+  String? _displayName;
+  String? _photoPath;
 
   @override
   void initState() {
     super.initState();
+    _loadUserProfile();
     _xmppService.connect(widget.username, widget.password, widget.domain, widget.port);
     _xmppService.messageStream.listen((message) {
       setState(() {
@@ -44,10 +49,18 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<void> _loadUserProfile() async {
+    final profile = await _authService.getUserProfile();
+    setState(() {
+      _displayName = profile['displayName'];
+      _photoPath = profile['photoPath'];
+    });
+  }
+
   void _sendMessage() {
     if (_selectedUser != null) {
       var message = _messageController.text;
-      _xmppService.sendMessage(message, _selectedUser!); // Pass only the username, domain is handled in the service
+      _xmppService.sendMessage(message, _selectedUser!);
       setState(() {
         _messages.add('Me: $message');
       });
@@ -72,8 +85,32 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chat'),
+        title: Row(
+          children: [
+            if (_photoPath != null)
+              CircleAvatar(
+                backgroundImage: FileImage(File(_photoPath!)),
+                radius: 20,
+              ),
+            if (_displayName != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 8.0),
+                child: Text(_displayName!),
+              ),
+          ],
+        ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => UserSettingsScreen()),
+              ).then((_) {
+                _loadUserProfile(); // Reload the user profile after returning from settings
+              });
+            },
+          ),
           IconButton(
             icon: Icon(Icons.logout),
             onPressed: _logout,
@@ -90,10 +127,20 @@ class _ChatScreenState extends State<ChatScreen> {
                 _selectedUser = newValue;
               });
             },
-            items: _users.where((user) => user != widget.username).map((user) { // Exclude current user
+            items: _users.where((user) => user != widget.username).map((user) {
               return DropdownMenuItem<String>(
                 value: user,
-                child: Text(user),
+                child: Row(
+                  children: [
+                    if (_photoPath != null)
+                      CircleAvatar(
+                        backgroundImage: FileImage(File(_photoPath!)),
+                        radius: 10,
+                      ),
+                    SizedBox(width: 8),
+                    Text(user),
+                  ],
+                ),
               );
             }).toList(),
           ),
@@ -102,6 +149,12 @@ class _ChatScreenState extends State<ChatScreen> {
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 return ListTile(
+                  leading: _messages[index].startsWith('Me: ')
+                      ? CircleAvatar(
+                    backgroundImage: _photoPath != null ? FileImage(File(_photoPath!)) : null,
+                    child: _photoPath == null ? Text('Me') : null,
+                  )
+                      : null,
                   title: Text(_messages[index]),
                 );
               },
