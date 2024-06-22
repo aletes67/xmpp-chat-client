@@ -90,7 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 _selectedUser = newValue;
               });
             },
-            items: _users.map((user) {
+            items: _users.where((user) => user != widget.username).map((user) { // Exclude current user
               return DropdownMenuItem<String>(
                 value: user,
                 child: Text(user),
