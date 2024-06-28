@@ -1,21 +1,16 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:chat_client/services/xmpp_service.dart';
 import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/pages/login_screen.dart';
 import 'package:chat_client/pages/user_settings_screen.dart';
+import 'package:chat_client/models/user.dart';
+import '../config.dart';
 
 class ChatScreen extends StatefulWidget {
-  final String username;
-  final String password;
-  final String domain;
-  final int port;
+  final User user;
 
   ChatScreen({
-    required this.username,
-    required this.password,
-    required this.domain,
-    required this.port,
+    required this.user,
   });
 
   @override
@@ -29,14 +24,20 @@ class _ChatScreenState extends State<ChatScreen> {
   List<String> _users = [];
   String? _selectedUser;
   final TextEditingController _messageController = TextEditingController();
-  String? _displayName;
-  String? _photoPath;
 
   @override
   void initState() {
     super.initState();
-    _loadUserProfile();
-    _xmppService.connect(widget.username, widget.password, widget.domain, widget.port);
+    final domain = Config.domain;
+    final port = Config.port;
+
+    _xmppService.connect(
+      widget.user.username,
+      widget.user.password,
+      domain,
+      port,
+      widget.user.groupName,
+    );
     _xmppService.messageStream.listen((message) {
       setState(() {
         _messages.add(message);
@@ -44,23 +45,15 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     _xmppService.usersStream.listen((users) {
       setState(() {
-        _users = users;
+        _users = users.where((user) => user != widget.user.username).toList(); // Rimuove l'utente corrente
       });
-    });
-  }
-
-  Future<void> _loadUserProfile() async {
-    final profile = await _authService.getUserProfile();
-    setState(() {
-      _displayName = profile['displayName'];
-      _photoPath = profile['photoPath'];
     });
   }
 
   void _sendMessage() {
     if (_selectedUser != null) {
       var message = _messageController.text;
-      _xmppService.sendMessage(message, _selectedUser!);
+      _xmppService.sendMessage(message, _selectedUser!); // Pass only the username, domain is handled in the service
       setState(() {
         _messages.add('Me: $message');
       });
@@ -74,6 +67,13 @@ class _ChatScreenState extends State<ChatScreen> {
     Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen()));
   }
 
+  void _goToUserSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => UserSettingsScreen(user: widget.user)),
+    );
+  }
+
   @override
   void dispose() {
     _xmppService.dispose();
@@ -85,31 +85,18 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            if (_photoPath != null)
-              CircleAvatar(
-                backgroundImage: FileImage(File(_photoPath!)),
-                radius: 20,
-              ),
-            if (_displayName != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 8.0),
-                child: Text(_displayName!),
-              ),
-          ],
+        title: Text(widget.user.displayName),
+        leading: widget.user.photoUrl != null && widget.user.photoUrl!.isNotEmpty
+            ? CircleAvatar(
+          backgroundImage: NetworkImage(widget.user.photoUrl!),
+        )
+            : CircleAvatar(
+          child: Text(widget.user.displayName.isNotEmpty ? widget.user.displayName[0] : '?'),
         ),
         actions: [
           IconButton(
             icon: Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => UserSettingsScreen()),
-              ).then((_) {
-                _loadUserProfile(); // Reload the user profile after returning from settings
-              });
-            },
+            onPressed: _goToUserSettings,
           ),
           IconButton(
             icon: Icon(Icons.logout),
@@ -127,20 +114,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 _selectedUser = newValue;
               });
             },
-            items: _users.where((user) => user != widget.username).map((user) {
+            items: _users.map((user) {
               return DropdownMenuItem<String>(
                 value: user,
-                child: Row(
-                  children: [
-                    if (_photoPath != null)
-                      CircleAvatar(
-                        backgroundImage: FileImage(File(_photoPath!)),
-                        radius: 10,
-                      ),
-                    SizedBox(width: 8),
-                    Text(user),
-                  ],
-                ),
+                child: Text(user),
               );
             }).toList(),
           ),
@@ -149,12 +126,6 @@ class _ChatScreenState extends State<ChatScreen> {
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 return ListTile(
-                  leading: _messages[index].startsWith('Me: ')
-                      ? CircleAvatar(
-                    backgroundImage: _photoPath != null ? FileImage(File(_photoPath!)) : null,
-                    child: _photoPath == null ? Text('Me') : null,
-                  )
-                      : null,
                   title: Text(_messages[index]),
                 );
               },

@@ -1,4 +1,5 @@
-GROUP_NAME=usrgrp1
 DOMAIN=messaggi.alessandrotesta.info
 PORT=5223
-
+OPENFIRE_API_URL=http://messaggi.alessandrotesta.info:29090/plugins/restapi/v1
+OPENFIRE_AUTH_TOKEN=PehtV8mbAm5M5MM1
+#UPLOAD_URL=http://messaggi.alessandrotesta.info:29090/plugins/

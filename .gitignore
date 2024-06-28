@@ -1,6 +1,8 @@
 # Miscellaneous
 config
-*.class
+generated*
+Generated*
+pubspec.lock *.class
 *.log
 *.pyc
 *.swp

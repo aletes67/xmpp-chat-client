@@ -11,14 +11,12 @@ class XmppService {
   final StreamController<String> _messageController = StreamController.broadcast();
   final StreamController<List<String>> _usersController = StreamController.broadcast();
   List<String> _users = [];
-  String? _currentUser;
 
   Stream<String> get messageStream => _messageController.stream;
   Stream<List<String>> get usersStream => _usersController.stream;
 
-  void connect(String username, String password, String domain, int port) {
+  void connect(String username, String password, String domain, int port, String groupName) {
     _logger.info('Attempting to connect to XMPP server...');
-    _currentUser = username; // Save the current username
     var jid = xmpp.Jid.fromFullJid('$username@$domain');
     var account = xmpp.XmppAccountSettings(
       'name',
@@ -36,7 +34,7 @@ class XmppService {
       _logger.info('Connection state changed: $state');
       if (state == xmpp.XmppConnectionState.Ready) {
         _logger.info('Connected to XMPP server!');
-        _joinGroup(domain);
+        _joinGroup(domain, groupName);
       }
     });
 
@@ -59,8 +57,7 @@ class XmppService {
     _connection.connect();
   }
 
-  void _joinGroup(String domain) {
-    String groupName = dotenv.env['GROUP_NAME']!;
+  void _joinGroup(String domain, String groupName) {
     String groupJid = '$groupName@conference.$domain';
     var presenceStanza = xmpp.PresenceStanza();
     presenceStanza.toJid = xmpp.Jid.fromFullJid(groupJid);
@@ -70,7 +67,7 @@ class XmppService {
 
   void _handlePresenceStanza(xmpp.PresenceStanza stanza) {
     var userJid = stanza.fromJid?.local; // Extracting the username
-    if (userJid != null && userJid != _currentUser) { // Exclude current user
+    if (userJid != null) {
       if (stanza.type == null && !_users.contains(userJid)) {
         _logger.info('User available: $userJid');
         _users.add(userJid);
