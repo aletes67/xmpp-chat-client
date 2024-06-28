@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:chat_client/services/xmpp_service.dart';
 import 'package:chat_client/services/auth_service.dart';
@@ -20,7 +22,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final XmppService _xmppService = XmppService();
   final AuthService _authService = AuthService();
-  List<String> _messages = [];
+  List<Map<String, dynamic>> _messages = [];
   List<String> _users = [];
   String? _selectedUser;
   final TextEditingController _messageController = TextEditingController();
@@ -32,11 +34,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final port = Config.port;
 
     _xmppService.connect(
-      widget.user.username,
-      widget.user.password,
+      widget.user,
       domain,
       port,
-      widget.user.groupName,
     );
     _xmppService.messageStream.listen((message) {
       setState(() {
@@ -53,9 +53,14 @@ class _ChatScreenState extends State<ChatScreen> {
   void _sendMessage() {
     if (_selectedUser != null) {
       var message = _messageController.text;
-      _xmppService.sendMessage(message, _selectedUser!); // Pass only the username, domain is handled in the service
+      _xmppService.sendMessage(widget.user, message, _selectedUser!); // Pass only the username, domain is handled in the service
       setState(() {
-        _messages.add('Me: $message');
+        _messages.add({
+          'sender': 'Me',
+          'displayName': widget.user.displayName,
+          'photoUrl': widget.user.photoUrl,
+          'message': message,
+        });
       });
       _messageController.clear();
     }
@@ -88,7 +93,7 @@ class _ChatScreenState extends State<ChatScreen> {
         title: Text(widget.user.displayName),
         leading: widget.user.photoUrl != null && widget.user.photoUrl!.isNotEmpty
             ? CircleAvatar(
-          backgroundImage: NetworkImage(widget.user.photoUrl!),
+          backgroundImage: FileImage(File(widget.user.photoUrl!)),
         )
             : CircleAvatar(
           child: Text(widget.user.displayName.isNotEmpty ? widget.user.displayName[0] : '?'),
@@ -125,8 +130,19 @@ class _ChatScreenState extends State<ChatScreen> {
             child: ListView.builder(
               itemCount: _messages.length,
               itemBuilder: (context, index) {
+                final messageData = _messages[index];
                 return ListTile(
-                  title: Text(_messages[index]),
+                  leading: messageData['photoUrl'] != null && messageData['photoUrl'].isNotEmpty
+                      ? CircleAvatar(
+                    backgroundImage: FileImage(File(messageData['photoUrl'])),
+                  )
+                      : CircleAvatar(
+                    child: Text(messageData['displayName'].isNotEmpty
+                        ? messageData['displayName'][0]
+                        : '?'),
+                  ),
+                  title: Text(messageData['displayName']),
+                  subtitle: Text(messageData['message']),
                 );
               },
             ),

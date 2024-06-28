@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/pages/chat_screen.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:chat_client/models/user.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -21,11 +19,8 @@ class _LoginScreenState extends State<LoginScreen> {
     // Save the credentials
     await _authService.saveCredentials(username, password);
 
-    // Get user profile
+    // Get the user profile
     final user = await _authService.getUserProfile(username);
-
-    // Update user password
-    user.password = password;
 
     // Navigate to the chat screen
     Navigator.pushReplacement(
