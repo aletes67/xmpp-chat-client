@@ -26,8 +26,8 @@ if (flutterVersionName == null) {
 android {
     compileSdkVersion 31
     namespace = "com.example.chat_client"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    compileSdk 33
+    ndkVersion = '25.2.9519653'
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
@@ -52,7 +52,7 @@ android {
             signingConfig = signingConfigs.debug
         }
     }
-    buildToolsVersion '30.0.3'
+    buildToolsVersion '33.0.2'
 }
 
 flutter {
