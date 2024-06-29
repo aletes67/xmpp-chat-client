@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:xmpp_stone/xmpp_stone.dart' as xmpp;
 import 'package:logging/logging.dart';
 import '../models/user.dart';
@@ -49,7 +50,7 @@ class XmppService {
           _messageController.add({
             'sender': sender,
             'displayName': userProfile['displayName'] ?? sender,
-            'photoUrl': userProfile['photoUrl'],
+            'photoBase64': userProfile['photoBase64'],
             'message': messageText,
           });
           _logger.info('Message received from $sender: $messageText');
@@ -92,6 +93,12 @@ class XmppService {
     }
   }
 
+  String _imageToBase64(String? photoUrl) {
+    if (photoUrl == null || photoUrl.isEmpty) return '';
+    final bytes = File(photoUrl).readAsBytesSync();
+    return base64Encode(bytes);
+  }
+
   void sendMessage(User user, String message, String toUsername) {
     var jidTo = xmpp.Jid.fromFullJid('$toUsername@${_connection.account.domain}');
     var messageStanza = xmpp.MessageStanza(
@@ -101,7 +108,7 @@ class XmppService {
     messageStanza.toJid = jidTo;
     var userProfile = jsonEncode({
       'displayName': user.displayName,
-      'photoUrl': user.photoUrl,
+      'photoBase64': _imageToBase64(user.photoUrl),
     });
     messageStanza.body = jsonEncode({
       'userProfile': userProfile,

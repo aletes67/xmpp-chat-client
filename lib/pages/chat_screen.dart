@@ -1,19 +1,19 @@
-import 'dart:io';
-
+import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:chat_client/services/xmpp_service.dart';
 import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/pages/login_screen.dart';
 import 'package:chat_client/pages/user_settings_screen.dart';
 import 'package:chat_client/models/user.dart';
 import '../config.dart';
+import '../providers/user_provider.dart';
 
 class ChatScreen extends StatefulWidget {
   final User user;
 
-  ChatScreen({
-    required this.user,
-  });
+  ChatScreen({required this.user});
 
   @override
   _ChatScreenState createState() => _ChatScreenState();
@@ -58,7 +58,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _messages.add({
           'sender': 'Me',
           'displayName': widget.user.displayName,
-          'photoUrl': widget.user.photoUrl,
+          'photoBase64': widget.user.photoBase64,
           'message': message,
         });
       });
@@ -79,6 +79,12 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  ImageProvider _base64ToImageProvider(String base64String) {
+    if (base64String.isEmpty) return AssetImage('assets/placeholder.png');
+    Uint8List bytes = base64Decode(base64String);
+    return MemoryImage(bytes);
+  }
+
   @override
   void dispose() {
     _xmppService.dispose();
@@ -88,15 +94,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.user.displayName),
-        leading: widget.user.photoUrl != null && widget.user.photoUrl!.isNotEmpty
+        title: Text(userProvider.user!.displayName),
+        leading: userProvider.user!.photoBase64 != null && userProvider.user!.photoBase64!.isNotEmpty
             ? CircleAvatar(
-          backgroundImage: FileImage(File(widget.user.photoUrl!)),
+          backgroundImage: _base64ToImageProvider(userProvider.user!.photoBase64!),
         )
             : CircleAvatar(
-          child: Text(widget.user.displayName.isNotEmpty ? widget.user.displayName[0] : '?'),
+          child: Text(userProvider.user!.displayName.isNotEmpty ? userProvider.user!.displayName[0] : '?'),
         ),
         actions: [
           IconButton(
@@ -132,9 +139,9 @@ class _ChatScreenState extends State<ChatScreen> {
               itemBuilder: (context, index) {
                 final messageData = _messages[index];
                 return ListTile(
-                  leading: messageData['photoUrl'] != null && messageData['photoUrl'].isNotEmpty
+                  leading: messageData['photoBase64'] != null && messageData['photoBase64'].isNotEmpty
                       ? CircleAvatar(
-                    backgroundImage: FileImage(File(messageData['photoUrl'])),
+                    backgroundImage: _base64ToImageProvider(messageData['photoBase64']),
                   )
                       : CircleAvatar(
                     child: Text(messageData['displayName'].isNotEmpty

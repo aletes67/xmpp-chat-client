@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/models/user.dart';
+import '../providers/user_provider.dart';
 
 class UserSettingsScreen extends StatefulWidget {
   final User user;
@@ -14,7 +16,6 @@ class UserSettingsScreen extends StatefulWidget {
 }
 
 class _UserSettingsScreenState extends State<UserSettingsScreen> {
-  final AuthService _authService = AuthService();
   final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   File? _image;
@@ -23,19 +24,23 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
   void initState() {
     super.initState();
     _displayNameController.text = widget.user.displayName;
+    if (widget.user.photoUrl != null && widget.user.photoUrl!.isNotEmpty) {
+      _image = File(widget.user.photoUrl!);
+    }
   }
 
   void _saveSettings() async {
     String displayName = _displayNameController.text;
 
     widget.user.displayName = displayName;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
     if (_image != null) {
-      await _authService.saveUserProfile(widget.user, _image!.path);
+      await userProvider.updateUser(widget.user, _image!.path);
     } else {
-      await _authService.saveUserProfile(widget.user, null);
+      await userProvider.updateUser(widget.user, null);
     }
 
-    Navigator.pop(context, widget.user);
+    Navigator.pop(context);
   }
 
   Future<void> _pickImage() async {
@@ -65,6 +70,24 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
         padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
+            if (_image != null)
+              CircleAvatar(
+                radius: 40,
+                backgroundImage: FileImage(_image!),
+              )
+            else if (widget.user.photoUrl != null && widget.user.photoUrl!.isNotEmpty)
+              CircleAvatar(
+                radius: 40,
+                backgroundImage: FileImage(File(widget.user.photoUrl!)),
+              )
+            else
+              CircleAvatar(
+                radius: 40,
+                child: Text(widget.user.displayName.isNotEmpty
+                    ? widget.user.displayName[0]
+                    : '?'),
+              ),
+            SizedBox(height: 20),
             TextField(
               controller: _displayNameController,
               decoration: InputDecoration(labelText: 'Display Name'),

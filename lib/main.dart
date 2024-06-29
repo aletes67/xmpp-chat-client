@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
 import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/pages/chat_screen.dart';
 import 'package:chat_client/pages/login_screen.dart';
-import 'package:chat_client/models/user.dart';
+import 'package:chat_client/providers/user_provider.dart';
 
 void main() async {
   await dotenv.load(fileName: "config");
-  runApp(MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => UserProvider(),
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -27,10 +33,10 @@ class MyApp extends StatelessWidget {
         } else {
           final credentials = snapshot.data!;
           if (credentials['username'] != null && credentials['password'] != null) {
-            return FutureBuilder<User>(
-              future: _authService.getUserProfile(credentials['username']!),
-              builder: (context, AsyncSnapshot<User> userSnapshot) {
-                if (userSnapshot.connectionState == ConnectionState.waiting) {
+            return FutureBuilder(
+              future: Provider.of<UserProvider>(context, listen: false).loadUser(credentials['username']!),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return MaterialApp(
                     home: Scaffold(
                       body: Center(child: CircularProgressIndicator()),
@@ -42,7 +48,11 @@ class MyApp extends StatelessWidget {
                     theme: ThemeData(
                       primarySwatch: Colors.blue,
                     ),
-                    home: ChatScreen(user: userSnapshot.data!),
+                    home: Consumer<UserProvider>(
+                      builder: (context, userProvider, _) {
+                        return ChatScreen(user: userProvider.user!);
+                      },
+                    ),
                   );
                 }
               },
