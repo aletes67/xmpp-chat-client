@@ -12,18 +12,18 @@ class UserProvider with ChangeNotifier {
   XmppService get xmppService => _xmppService;
 
   Future<void> loadUser(String username, String password) async {
-    _user = await _authService.getUserProfile(username, password);
+    _user = User(username: username, password: password, displayName: username, groupName: '---');
     notifyListeners();
   }
 
   Future<void> updateUser(User user) async {
-    await _authService.saveUserProfile(user);
+    await user.saveToLocalStorage();
     _user = user;
     notifyListeners();
   }
 
   Future<User?> tryLoadUserFromProfile() async {
-    _user = await _authService.tryLoadUserFromProfile();
+    _user = await User.loadFromLocalStorage();
     if (_user != null) {
       bool authenticated = await _xmppService.connect(_user!);
       if (!authenticated) {
@@ -35,18 +35,17 @@ class UserProvider with ChangeNotifier {
   }
 
   Future<bool> authenticate(String username, String password) async {
-    final user = await _authService.getUserProfile(username, password);
-    bool authenticated = await _xmppService.connect(user);
+    bool authenticated = await _authService.authenticate(username, password);
     if (authenticated) {
-      _user = user;
-      await _authService.saveUserProfile(user);
+      _user = User(username: username, password: password, displayName: username, groupName: '---', isAuthenticated: true);
+      await _user!.saveToLocalStorage();
     }
     notifyListeners();
     return authenticated;
   }
 
   Future<void> clearCredentials() async {
-    await _authService.clearCredentials();
+    await _user?.clearCredentials();
     _user = null;
     notifyListeners();
   }
