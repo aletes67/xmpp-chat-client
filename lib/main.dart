@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:logging/logging.dart';
 import 'package:provider/provider.dart';
 import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/pages/chat_screen.dart';
 import 'package:chat_client/pages/login_screen.dart';
 import 'package:chat_client/providers/user_provider.dart';
+import 'package:chat_client/models/user.dart';
 
 void main() async {
+  Logger.root.level = Level.INFO; // Cambia il livello di log
+  Logger.root.onRecord.listen((record) {
+    print('${record.level.name}: ${record.time}: ${record.message}');
+  });
   await dotenv.load(fileName: "config");
   runApp(
     ChangeNotifierProvider(
@@ -17,55 +23,34 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  final AuthService _authService = AuthService();
-
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: _authService.getCredentials(),
-      builder: (context, AsyncSnapshot<Map<String, String?>> snapshot) {
+    return FutureBuilder<User?>(
+      future: Provider.of<UserProvider>(context, listen: false).tryLoadUserFromProfile(),
+      builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return MaterialApp(
             home: Scaffold(
               body: Center(child: CircularProgressIndicator()),
             ),
           );
+        } else if (snapshot.hasData) {
+          final user = snapshot.data!;
+          return MaterialApp(
+            title: 'XMPP Chat',
+            theme: ThemeData(
+              primarySwatch: Colors.blue,
+            ),
+            home: ChatScreen(user: user),
+          );
         } else {
-          final credentials = snapshot.data!;
-          if (credentials['username'] != null && credentials['password'] != null) {
-            return FutureBuilder(
-              future: Provider.of<UserProvider>(context, listen: false).loadUser(credentials['username']!),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return MaterialApp(
-                    home: Scaffold(
-                      body: Center(child: CircularProgressIndicator()),
-                    ),
-                  );
-                } else {
-                  return MaterialApp(
-                    title: 'XMPP Chat',
-                    theme: ThemeData(
-                      primarySwatch: Colors.blue,
-                    ),
-                    home: Consumer<UserProvider>(
-                      builder: (context, userProvider, _) {
-                        return ChatScreen(user: userProvider.user!);
-                      },
-                    ),
-                  );
-                }
-              },
-            );
-          } else {
-            return MaterialApp(
-              title: 'XMPP Chat',
-              theme: ThemeData(
-                primarySwatch: Colors.blue,
-              ),
-              home: LoginScreen(),
-            );
-          }
+          return MaterialApp(
+            title: 'XMPP Chat',
+            theme: ThemeData(
+              primarySwatch: Colors.blue,
+            ),
+            home: LoginScreen(),
+          );
         }
       },
     );

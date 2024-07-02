@@ -20,8 +20,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final XmppService _xmppService = XmppService();
-  final AuthService _authService = AuthService();
+  late XmppService _xmppService;
   List<Map<String, dynamic>> _messages = [];
   List<String> _users = [];
   String? _selectedUser;
@@ -30,14 +29,8 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    final domain = Config.domain;
-    final port = Config.port;
-
-    _xmppService.connect(
-      widget.user,
-      domain,
-      port,
-    );
+    _xmppService = Provider.of<UserProvider>(context, listen: false).xmppService;
+    final user = Provider.of<UserProvider>(context, listen: false).user!;
     _xmppService.messageStream.listen((message) {
       setState(() {
         _messages.add(message);
@@ -45,7 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     _xmppService.usersStream.listen((users) {
       setState(() {
-        _users = users.where((user) => user != widget.user.username).toList(); // Rimuove l'utente corrente
+        _users = users.where((u) => u != user.username).toList();
       });
     });
   }
@@ -53,12 +46,13 @@ class _ChatScreenState extends State<ChatScreen> {
   void _sendMessage() {
     if (_selectedUser != null) {
       var message = _messageController.text;
-      _xmppService.sendMessage(widget.user, message, _selectedUser!); // Pass only the username, domain is handled in the service
+      final user = Provider.of<UserProvider>(context, listen: false).user!;
+      _xmppService.sendMessage(user, message, _selectedUser!);
       setState(() {
         _messages.add({
           'sender': 'Me',
-          'displayName': widget.user.displayName,
-          'photoBase64': widget.user.photoBase64,
+          'displayName': user.displayName,
+          'photoBase64': user.photoBase64,
           'message': message,
         });
       });
@@ -67,15 +61,19 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _logout() async {
-    await _authService.clearCredentials();
+    await Provider.of<UserProvider>(context, listen: false).clearCredentials();
     _xmppService.dispose();
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginScreen()));
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => LoginScreen()),
+    );
   }
 
   void _goToUserSettings() {
+    final user = Provider.of<UserProvider>(context, listen: false).user!;
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => UserSettingsScreen(user: widget.user)),
+      MaterialPageRoute(builder: (context) => UserSettingsScreen(user: user)),
     );
   }
 
@@ -94,16 +92,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
+    final user = Provider.of<UserProvider>(context).user!;
     return Scaffold(
       appBar: AppBar(
-        title: Text(userProvider.user!.displayName),
-        leading: userProvider.user!.photoBase64 != null && userProvider.user!.photoBase64!.isNotEmpty
+        title: Text(user.displayName),
+        leading: user.photoBase64 != null && user.photoBase64!.isNotEmpty
             ? CircleAvatar(
-          backgroundImage: _base64ToImageProvider(userProvider.user!.photoBase64!),
+          backgroundImage: _base64ToImageProvider(user.photoBase64!),
         )
             : CircleAvatar(
-          child: Text(userProvider.user!.displayName.isNotEmpty ? userProvider.user!.displayName[0] : '?'),
+          child: Text(user.displayName.isNotEmpty ? user.displayName[0] : '?'),
         ),
         actions: [
           IconButton(
@@ -144,9 +142,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     backgroundImage: _base64ToImageProvider(messageData['photoBase64']),
                   )
                       : CircleAvatar(
-                    child: Text(messageData['displayName'].isNotEmpty
-                        ? messageData['displayName'][0]
-                        : '?'),
+                    child: Text(messageData['displayName'].isNotEmpty ? messageData['displayName'][0] : '?'),
                   ),
                   title: Text(messageData['displayName']),
                   subtitle: Text(messageData['message']),

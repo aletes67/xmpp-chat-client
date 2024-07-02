@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -18,14 +19,14 @@ class UserSettingsScreen extends StatefulWidget {
 class _UserSettingsScreenState extends State<UserSettingsScreen> {
   final TextEditingController _displayNameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  File? _image;
+  Uint8List? _imageBytes;
 
   @override
   void initState() {
     super.initState();
     _displayNameController.text = widget.user.displayName;
-    if (widget.user.photoUrl != null && widget.user.photoUrl!.isNotEmpty) {
-      _image = File(widget.user.photoUrl!);
+    if (widget.user.photoBase64 != null && widget.user.photoBase64!.isNotEmpty) {
+      _imageBytes = base64Decode(widget.user.photoBase64!);
     }
   }
 
@@ -34,23 +35,28 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
 
     widget.user.displayName = displayName;
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-    if (_image != null) {
-      await userProvider.updateUser(widget.user, _image!.path);
-    } else {
-      await userProvider.updateUser(widget.user, null);
+    if (_imageBytes != null) {
+      widget.user.photoBase64 = base64Encode(_imageBytes!);
     }
+    await userProvider.updateUser(widget.user);
 
     Navigator.pop(context);
   }
 
   Future<void> _pickImage() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
+      setState(() {
+        _imageBytes = bytes;
+      });
+    }
+  }
 
-    setState(() {
-      if (pickedFile != null) {
-        _image = File(pickedFile.path);
-      }
-    });
+  ImageProvider _base64ToImageProvider(String base64String) {
+    if (base64String.isEmpty) return AssetImage('assets/placeholder.png');
+    Uint8List bytes = base64Decode(base64String);
+    return MemoryImage(bytes);
   }
 
   @override
@@ -70,15 +76,15 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
         padding: EdgeInsets.all(16.0),
         child: Column(
           children: [
-            if (_image != null)
+            if (_imageBytes != null)
               CircleAvatar(
                 radius: 40,
-                backgroundImage: FileImage(_image!),
+                backgroundImage: MemoryImage(_imageBytes!),
               )
-            else if (widget.user.photoUrl != null && widget.user.photoUrl!.isNotEmpty)
+            else if (widget.user.photoBase64 != null && widget.user.photoBase64!.isNotEmpty)
               CircleAvatar(
                 radius: 40,
-                backgroundImage: FileImage(File(widget.user.photoUrl!)),
+                backgroundImage: _base64ToImageProvider(widget.user.photoBase64!),
               )
             else
               CircleAvatar(
