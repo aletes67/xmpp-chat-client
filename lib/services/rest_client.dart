@@ -1,34 +1,43 @@
-import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../config.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'dart:convert';
+import 'package:xml/xml.dart' as xml;
+import 'package:logging/logging.dart';
 
 class RestClient {
-  final String _baseUrl = Config.apiUrl;
-  final String _authToken = Config.authToken;
+  final Logger _logger = Logger('RestApi');
+
+  final String baseUrl = dotenv.env['OPENFIRE_API_URL']!;
+  final String authToken = dotenv.env['OPENFIRE_AUTH_TOKEN']!;
 
   Future<List<String>> getUserGroups(String username) async {
-    final url = '$_baseUrl/users/$username/groups';
-    final headers = {
-      'Authorization': _authToken,
-      'accept': 'application/xml',
-    };
-
-    final response = await http.get(Uri.parse(url), headers: headers);
+    final response = await http.get(
+      Uri.parse('$baseUrl/users/$username/groups'),
+      headers: {
+        'Content-Type':'application/json',
+        'Authorization': authToken,
+      },
+    );
 
     if (response.statusCode == 200) {
-      // Assuming the response is in XML format and contains group names
-      final xmlResponse = response.body;
-      // Parse the XML and extract the group names
-      // This example assumes you have a function to parse XML
-      return _parseGroupsFromXml(xmlResponse);
+      _logger.info('RestApi: getUserGroups: ${response.body}'); // Log the response body
+
+      try {
+        // Parse the XML response
+        final document = xml.XmlDocument.parse(response.body);
+        final groups = document.findAllElements('groupname').map((element) => element.text).toList();
+
+        return groups;
+      } catch (e) {
+        _logger.warning('RestApi: getUserGroups: Failed to parse XML: $e');
+        throw Exception('Failed to parse user groups');
+      }
     } else {
+      _logger.warning('RestApi: getUserGroups: Failed with status code: ${response.statusCode}');
       throw Exception('Failed to load user groups');
     }
-  }
 
-  List<String> _parseGroupsFromXml(String xmlResponse) {
-    // Implement XML parsing logic here
-    // This is a placeholder for the actual XML parsing code
-    return [];
+
+
   }
 }

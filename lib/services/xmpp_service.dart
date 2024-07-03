@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'dart:convert'; // Aggiunto jsonEncode e jsonDecode
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:xmpp_stone/xmpp_stone.dart' as xmpp;
 import 'package:logging/logging.dart';
 import '../config.dart';
 import '../models/user.dart';
+import '../services/rest_client.dart';
+import '../providers/user_provider.dart'; // Importa il provider dell'utente
 
 class XmppService {
   final Logger _logger = Logger('XmppService');
@@ -15,6 +17,10 @@ class XmppService {
   final StreamController<Map<String, dynamic>> _messageController = StreamController.broadcast();
   final StreamController<List<String>> _usersController = StreamController.broadcast();
   List<String> _users = [];
+  final RestClient _restClient = RestClient();
+  final UserProvider _userProvider; // Aggiungi UserProvider come dipendenza
+
+  XmppService(this._userProvider); // Costruttore che accetta UserProvider
 
   Stream<Map<String, dynamic>> get messageStream => _messageController.stream;
   Stream<List<String>> get usersStream => _usersController.stream;
@@ -38,10 +44,24 @@ class XmppService {
 
     final completer = Completer<bool>();
 
-    _connection.connectionStateStream.listen((xmpp.XmppConnectionState state) {
+    _connection.connectionStateStream.listen((xmpp.XmppConnectionState state) async {
       _logger.info('XmppService.connect: Connection state changed: $state');
       if (state == xmpp.XmppConnectionState.Ready) {
         _logger.info('XmppService.connect: Connected to XMPP server!');
+
+        try {
+          // Caricamento gruppi utente
+          final groups = await _restClient.getUserGroups(user.username);
+          user.groupName = groups.join(', ');
+
+          // Aggiornamento dell'utente nel provider
+          await _userProvider.updateUser(user);
+
+          _logger.info('XmppService.connect: User groups loaded and updated: $groups');
+        } catch (e) {
+          _logger.warning('XmppService.connect: Failed to load user groups: $e');
+        }
+
         completer.complete(true);
       } else if (state == xmpp.XmppConnectionState.ForcefullyClosed) {
         completer.complete(false);

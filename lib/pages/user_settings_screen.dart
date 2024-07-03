@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/models/user.dart';
 import '../providers/user_provider.dart';
 

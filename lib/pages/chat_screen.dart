@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:chat_client/services/xmpp_service.dart';
-import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/pages/login_screen.dart';
 import 'package:chat_client/pages/user_settings_screen.dart';
 import 'package:chat_client/models/user.dart';

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:chat_client/models/user.dart';
-import 'package:chat_client/services/auth_service.dart';
 import 'package:chat_client/services/xmpp_service.dart';
 
 class UserProvider with ChangeNotifier {
   User? _user;
-  final AuthService _authService = AuthService();
-  final XmppService _xmppService = XmppService();
+  late XmppService _xmppService;
+
+  UserProvider() {
+    _xmppService = XmppService(this); // Passa il provider stesso a XmppService
+  }
 
   User? get user => _user;
   XmppService get xmppService => _xmppService;
@@ -35,7 +37,14 @@ class UserProvider with ChangeNotifier {
   }
 
   Future<bool> authenticate(String username, String password) async {
-    bool authenticated = await _authService.authenticate(username, password);
+    final user = User(
+      username: username,
+      password: password,
+      displayName: username,
+      groupName: '---',
+      isAuthenticated: false,
+    );
+    bool authenticated = await _xmppService.connect(user);
     if (authenticated) {
       _user = User(username: username, password: password, displayName: username, groupName: '---', isAuthenticated: true);
       await _user!.saveToLocalStorage();
