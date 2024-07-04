@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class User {
   String username;
@@ -46,10 +48,7 @@ class User {
     return directory.path;
   }
 
-
   Future<void> saveToLocalStorage() async {
-    final path = await getLocalPath();
-    final file = File('$path/$_profileFilePath');
     final jsonString = jsonEncode(toJson());
 
     final iv = encrypt.IV.fromLength(16); // Create a new IV
@@ -60,16 +59,36 @@ class User {
       'data': encrypted.base64,
     });
 
-    await file.writeAsString(encryptedData);
+    if (kIsWeb) {
+      // Save to SharedPreferences for web
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_profileFilePath, encryptedData);
+    } else {
+      // Save to file for non-web
+      final path = await getLocalPath();
+      final file = File('$path/$_profileFilePath');
+      await file.writeAsString(encryptedData);
+    }
   }
 
   static Future<User?> loadFromLocalStorage() async {
     try {
-      final path = await getLocalPath();
-      final file = File('$path/$_profileFilePath');
-      if (!file.existsSync()) throw Exception('Profile not found');
+      String? encryptedContent;
 
-      final encryptedContent = await file.readAsString();
+      if (kIsWeb) {
+        // Load from SharedPreferences for web
+        final prefs = await SharedPreferences.getInstance();
+        encryptedContent = prefs.getString(_profileFilePath);
+      } else {
+        // Load from file for non-web
+        final path = await getLocalPath();
+        final file = File('$path/$_profileFilePath');
+        if (!file.existsSync()) throw Exception('Profile not found');
+        encryptedContent = await file.readAsString();
+      }
+
+      if (encryptedContent == null) throw Exception('Profile not found');
+
       final Map<String, dynamic> encryptedJson = jsonDecode(encryptedContent);
 
       final iv = encrypt.IV.fromBase64(encryptedJson['iv']);
@@ -88,10 +107,17 @@ class User {
 
   Future<void> clearCredentials() async {
     try {
-      final path = await getLocalPath();
-      final file = File('$path/$_profileFilePath');
-      if (file.existsSync()) {
-        await file.delete();
+      if (kIsWeb) {
+        // Clear SharedPreferences for web
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_profileFilePath);
+      } else {
+        // Clear file for non-web
+        final path = await getLocalPath();
+        final file = File('$path/$_profileFilePath');
+        if (file.existsSync()) {
+          await file.delete();
+        }
       }
     } catch (e) {
       // Handle error

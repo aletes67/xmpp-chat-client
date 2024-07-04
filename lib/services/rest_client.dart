@@ -14,7 +14,7 @@ class RestClient {
     final response = await http.get(
       Uri.parse('$baseUrl/users/$username/groups'),
       headers: {
-        'Content-Type':'application/json',
+        'Content-Type':'application/xml',
         'Authorization': authToken,
       },
     );

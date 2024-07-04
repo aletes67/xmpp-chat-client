@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 import 'package:chat_client/models/user.dart';
 import '../providers/user_provider.dart';
@@ -46,8 +47,14 @@ class _UserSettingsScreenState extends State<UserSettingsScreen> {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
       final bytes = await pickedFile.readAsBytes();
+      final img.Image originalImage = img.decodeImage(bytes)!;
+
+      // Riduzione e compressione dell'immagine
+      final img.Image resizedImage = img.copyResize(originalImage, width: 100); // Riduce l'immagine a 100px di larghezza
+      final Uint8List compressedBytes = Uint8List.fromList(img.encodeJpg(resizedImage, quality: 80)); // Compressione con qualit� 80
+
       setState(() {
-        _imageBytes = bytes;
+        _imageBytes = compressedBytes;
       });
     }
   }
