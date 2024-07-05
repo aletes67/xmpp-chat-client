@@ -21,23 +21,29 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   late XmppService _xmppService;
   List<Map<String, dynamic>> _messages = [];
-  List<String> _users = [];
   String? _selectedUser;
   final TextEditingController _messageController = TextEditingController();
+  bool _isLoadingUsers = true;
 
   @override
   void initState() {
     super.initState();
+    print('ChatScreen initState');
     _xmppService = Provider.of<UserProvider>(context, listen: false).xmppService;
     final user = Provider.of<UserProvider>(context, listen: false).user!;
+
+    // Ascolta lo stream dei messaggi
     _xmppService.messageStream.listen((message) {
       setState(() {
         _messages.add(message);
       });
     });
-    _xmppService.usersStream.listen((users) {
+
+    // Forza un aggiornamento dello stato degli utenti subito dopo l'inizializzazione
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      print('ChatScreen post frame callback');
       setState(() {
-        _users = users.where((u) => u != user.username).toList();
+        _isLoadingUsers = false;
       });
     });
   }
@@ -92,6 +98,8 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context).user!;
+    final users = Provider.of<UserProvider>(context).users;
+    print('ChatScreen build, _users: $users, _isLoadingUsers: $_isLoadingUsers');
     return Scaffold(
       appBar: AppBar(
         title: Text(user.displayName),
@@ -115,7 +123,14 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          DropdownButton<String>(
+          _isLoadingUsers
+              ? Center(child: CircularProgressIndicator())
+              : users.isEmpty
+              ? Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text("No users available"),
+          )
+              : DropdownButton<String>(
             hint: Text('Select User'),
             value: _selectedUser,
             onChanged: (newValue) {
@@ -123,7 +138,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 _selectedUser = newValue;
               });
             },
-            items: _users.map((user) {
+            items: users.map((user) {
               return DropdownMenuItem<String>(
                 value: user,
                 child: Text(user),

@@ -7,7 +7,6 @@ import 'package:logging/logging.dart';
 import '../config.dart';
 import '../models/user.dart';
 import '../services/rest_client.dart';
-import '../providers/user_provider.dart'; // Importa il provider dell'utente
 
 class XmppService {
   final Logger _logger = Logger('XmppService');
@@ -18,9 +17,8 @@ class XmppService {
   final StreamController<List<String>> _usersController = StreamController.broadcast();
   List<String> _users = [];
   final RestClient _restClient = RestClient();
-  final UserProvider _userProvider; // Aggiungi UserProvider come dipendenza
 
-  XmppService(this._userProvider); // Costruttore che accetta UserProvider
+  XmppService();
 
   Stream<Map<String, dynamic>> get messageStream => _messageController.stream;
   Stream<List<String>> get usersStream => _usersController.stream;
@@ -50,12 +48,14 @@ class XmppService {
         _logger.info('XmppService.connect: Connected to XMPP server!');
 
         try {
+          // Invia una presenza 'available'
+          var presence = xmpp.PresenceStanza();
+          _connection.writeStanza(presence);
+          _logger.info('XmppService.connect: Sent initial presence');
+
           // Caricamento gruppi utente
           final groups = await _restClient.getUserGroups(user.username);
           user.groupName = groups.join(', ');
-
-          // Aggiornamento dell'utente nel provider
-          await _userProvider.updateUser(user);
 
           _logger.info('XmppService.connect: User groups loaded and updated: $groups');
         } catch (e) {
@@ -102,14 +102,19 @@ class XmppService {
   void _handlePresenceStanza(xmpp.PresenceStanza stanza) {
     var userJid = stanza.fromJid?.local; // Extracting the username
     if (userJid != null) {
-      if (stanza.type == null && !_users.contains(userJid)) {
+      _logger.info('XmppService._handlePresenceStanza: User presence change: $userJid, type: ${stanza.type}');
+      if (stanza.type == null) {
         _logger.info('XmppService._handlePresenceStanza: User available: $userJid');
-        _users.add(userJid);
-        _usersController.add(_users);
+        if (!_users.contains(userJid)) {
+          _users.add(userJid);
+          _logger.info('XmppService._handlePresenceStanza: Users updated: $_users');
+          _usersController.add(List.from(_users)); // Aggiorna lo stream degli utenti
+        }
       } else if (stanza.type == xmpp.PresenceType.UNAVAILABLE) {
         _logger.info('XmppService._handlePresenceStanza: User unavailable: $userJid');
         _users.remove(userJid);
-        _usersController.add(_users);
+        _logger.info('XmppService._handlePresenceStanza: Users updated: $_users');
+        _usersController.add(List.from(_users)); // Aggiorna lo stream degli utenti
       }
     }
   }
