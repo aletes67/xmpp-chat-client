@@ -6,6 +6,7 @@ import 'package:chat_client/services/xmpp_service.dart';
 import 'package:chat_client/pages/login_screen.dart';
 import 'package:chat_client/pages/user_settings_screen.dart';
 import 'package:chat_client/models/user.dart';
+import 'package:xmpp_stone/xmpp_stone.dart' as xmpp;  // Importazione xmpp_stone
 import '../config.dart';
 import '../providers/user_provider.dart';
 
@@ -23,7 +24,6 @@ class _ChatScreenState extends State<ChatScreen> {
   List<Map<String, dynamic>> _messages = [];
   String? _selectedUser;
   final TextEditingController _messageController = TextEditingController();
-  bool _isLoadingUsers = true;
 
   @override
   void initState() {
@@ -39,17 +39,33 @@ class _ChatScreenState extends State<ChatScreen> {
       });
     });
 
-    // Forza un aggiornamento dello stato degli utenti subito dopo l'inizializzazione
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('ChatScreen post frame callback');
-      setState(() {
-        _isLoadingUsers = false;
-      });
+    // Ascolta lo stato di connessione
+    _xmppService.connectionStateStream.listen((state) {
+      if (state == xmpp.XmppConnectionState.Closed || state == xmpp.XmppConnectionState.ForcefullyClosed) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginScreen()),
+        );
+      }
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final userProvider = Provider.of<UserProvider>(context);
+    if (userProvider.user == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => LoginScreen()),
+        );
+      });
+    }
+  }
+
   void _sendMessage() {
-    if (_selectedUser != null) {
+    if (_selectedUser != null && _selectedUser != widget.user.username) {
       var message = _messageController.text;
       final user = Provider.of<UserProvider>(context, listen: false).user!;
       _xmppService.sendMessage(user, message, _selectedUser!);
@@ -90,16 +106,24 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
-    _xmppService.dispose();
     _messageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = Provider.of<UserProvider>(context).user!;
-    final users = Provider.of<UserProvider>(context).users;
-    print('ChatScreen build, _users: $users, _isLoadingUsers: $_isLoadingUsers');
+    final user = Provider.of<UserProvider>(context).user;
+    if (user == null) {
+      return Container(); // Or show a loading indicator
+    }
+    final users = Provider.of<UserProvider>(context).users.toSet().toList(); // Ensure uniqueness
+
+    // Check if the selected user is still available
+    if (_selectedUser != null && !users.contains(_selectedUser)) {
+      _selectedUser = null;
+    }
+
+    print('ChatScreen build, _users: $users');
     return Scaffold(
       appBar: AppBar(
         title: Text(user.displayName),
@@ -123,9 +147,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
-          _isLoadingUsers
-              ? Center(child: CircularProgressIndicator())
-              : users.isEmpty
+          users.isEmpty
               ? Padding(
             padding: EdgeInsets.all(16.0),
             child: Text("No users available"),

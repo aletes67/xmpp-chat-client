@@ -36,9 +36,9 @@ class MyApp extends StatelessWidget {
         } else if (snapshot.hasData) {
           final user = snapshot.data!;
           return MaterialApp(
-            title: 'XMPP Chat',
+            title: 'XMPP Chat 0.0.1',
             theme: ThemeData(
-              primarySwatch: Colors.blue,
+              primarySwatch: Colors.green,
             ),
             home: ChatScreen(user: user),
           );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:chat_client/pages/chat_screen.dart';
 import 'package:chat_client/providers/user_provider.dart';
+import 'package:chat_client/models/user.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -14,11 +15,17 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   void _login() async {
+    String username = _usernameController.text;
+    String password = _passwordController.text;
+
+    if (username.isEmpty || password.isEmpty) {
+      _showError('Username and password cannot be empty.');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
-    String username = _usernameController.text;
-    String password = _passwordController.text;
 
     try {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -31,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       } else {
-        _showError('Authentication failed');
+        _showError(userProvider.authError ?? 'Authentication failed');
       }
     } catch (e) {
       _showError(e.toString());

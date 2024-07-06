@@ -15,6 +15,7 @@ class XmppService {
   late StreamSubscription _presenceSubscription;
   final StreamController<Map<String, dynamic>> _messageController = StreamController.broadcast();
   final StreamController<List<String>> _usersController = StreamController.broadcast();
+  final StreamController<xmpp.XmppConnectionState> _connectionStateController = StreamController.broadcast();
   List<String> _users = [];
   final RestClient _restClient = RestClient();
 
@@ -22,6 +23,7 @@ class XmppService {
 
   Stream<Map<String, dynamic>> get messageStream => _messageController.stream;
   Stream<List<String>> get usersStream => _usersController.stream;
+  Stream<xmpp.XmppConnectionState> get connectionStateStream => _connectionStateController.stream;
 
   Future<bool> connect(User user) async {
     _logger.info('XmppService.connect: Attempting to connect to XMPP server...');
@@ -44,6 +46,7 @@ class XmppService {
 
     _connection.connectionStateStream.listen((xmpp.XmppConnectionState state) async {
       _logger.info('XmppService.connect: Connection state changed: $state');
+      _connectionStateController.add(state);
       if (state == xmpp.XmppConnectionState.Ready) {
         _logger.info('XmppService.connect: Connected to XMPP server!');
 
@@ -63,7 +66,7 @@ class XmppService {
         }
 
         completer.complete(true);
-      } else if (state == xmpp.XmppConnectionState.ForcefullyClosed) {
+      } else if (state == xmpp.XmppConnectionState.ForcefullyClosed || state == xmpp.XmppConnectionState.Closed) {
         completer.complete(false);
       }
     });
@@ -91,7 +94,7 @@ class XmppService {
     _presenceSubscription = _connection.inStanzasStream.listen((stanza) {
       if (stanza is xmpp.PresenceStanza) {
         _logger.info('XmppService.connect: Presence stanza received from ${stanza.fromJid!.fullJid}: ${stanza.type}');
-        _handlePresenceStanza(stanza);
+        _handlePresenceStanza(stanza, user.username);
       }
     });
 
@@ -99,13 +102,13 @@ class XmppService {
     return completer.future;
   }
 
-  void _handlePresenceStanza(xmpp.PresenceStanza stanza) {
+  void _handlePresenceStanza(xmpp.PresenceStanza stanza, String currentUsername) {
     var userJid = stanza.fromJid?.local; // Extracting the username
     if (userJid != null) {
       _logger.info('XmppService._handlePresenceStanza: User presence change: $userJid, type: ${stanza.type}');
       if (stanza.type == null) {
         _logger.info('XmppService._handlePresenceStanza: User available: $userJid');
-        if (!_users.contains(userJid)) {
+        if (!_users.contains(userJid) && userJid != currentUsername) { // Check to avoid adding current user
           _users.add(userJid);
           _logger.info('XmppService._handlePresenceStanza: Users updated: $_users');
           _usersController.add(List.from(_users)); // Aggiorna lo stream degli utenti
@@ -164,5 +167,6 @@ class XmppService {
     _connection.close();
     _messageController.close();
     _usersController.close();
+    _connectionStateController.close();
   }
 }

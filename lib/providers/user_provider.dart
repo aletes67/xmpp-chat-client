@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:chat_client/models/user.dart';
 import 'package:chat_client/services/xmpp_service.dart';
+import 'package:xmpp_stone/xmpp_stone.dart' as xmpp;
 
 class UserProvider with ChangeNotifier {
   User? _user;
   late XmppService _xmppService;
   List<String> _users = [];
+  String? authError;
 
   UserProvider() {
     _xmppService = XmppService();
@@ -13,6 +15,14 @@ class UserProvider with ChangeNotifier {
       _users = users.where((u) => u != _user?.username).toList();
       notifyListeners();
       print('UserProvider usersStream listen: $_users');
+    });
+
+    // Listen to connection state changes
+    _xmppService.connectionStateStream.listen((state) {
+      if (state == xmpp.XmppConnectionState.Closed || state == xmpp.XmppConnectionState.ForcefullyClosed) {
+        clearCredentials();
+        notifyListeners();
+      }
     });
   }
 
@@ -61,9 +71,13 @@ class UserProvider with ChangeNotifier {
     if (authenticated) {
       _user = User(username: username, password: password, displayName: username, groupName: '---', isAuthenticated: true);
       await _user!.saveToLocalStorage();
+      authError = null;
+    } else {
+      authError = 'Authentication failed. Please check your credentials and try again.';
+      _user = null;
     }
     notifyListeners();
-    print('UserProvider authenticate: notifyListeners: $_user');
+    print('UserProvider authenticate: notifyListeners: $_user, authError: $authError');
     return authenticated;
   }
 
